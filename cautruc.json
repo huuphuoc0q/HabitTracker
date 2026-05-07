@@ -1,0 +1,81 @@
+{
+  "name": "habit-tracker",
+  "path": "e:\\WEBTEST\\habit-tracker",
+  "type": "directory",
+  "children": [
+    {
+      "name": "src",
+      "type": "folder",
+      "icon": "📁",
+      "children": [
+        {
+          "name": "App.tsx",
+          "type": "file",
+          "icon": "⚛️"
+        },
+        {
+          "name": "index.css",
+          "type": "file",
+          "icon": "🎨"
+        },
+        {
+          "name": "main.tsx",
+          "type": "file",
+          "icon": "⚛️"
+        }
+      ]
+    },
+    {
+      "name": ".gitignore",
+      "type": "file",
+      "icon": "📁"
+    },
+    {
+      "name": "README.md",
+      "type": "file",
+      "icon": "📝"
+    },
+    {
+      "name": "TODO.md",
+      "type": "file",
+      "icon": "📝"
+    },
+    {
+      "name": "index.html",
+      "type": "file",
+      "icon": "🌐"
+    },
+    {
+      "name": "metadata.json",
+      "type": "file",
+      "icon": "⚙️"
+    },
+    {
+      "name": "package-lock.json",
+      "type": "file",
+      "icon": "⚙️"
+    },
+    {
+      "name": "package.json",
+      "type": "file",
+      "icon": "📦"
+    },
+    {
+      "name": "tsconfig.json",
+      "type": "file",
+      "icon": "⚙️"
+    },
+    {
+      "name": "vite.config.ts",
+      "type": "file",
+      "icon": "📘"
+    }
+  ],
+  "metadata": {
+    "generated": "2026-05-03T02:29:05.655Z",
+    "generator": "FileTree Pro Extension",
+    "version": "0.2.0",
+    "showIcons": true,
+    "maxDepth": 10
+  }
+}
