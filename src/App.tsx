@@ -125,19 +125,20 @@ function useLocalStorage<T>(key: string, initialValue: T) {
     }
   });
 
-  const setValue = (value: T | ((val: T) => T)) => {
+  const setValue = React.useCallback((value: T | ((val: T) => T)) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      setStoredValue((prevStoredValue) => {
+        const valueToStore = value instanceof Function ? value(prevStoredValue) : value;
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        return valueToStore;
+      });
     } catch (error) {
       console.warn("Lỗi khi lưu vào localStorage:", error);
     }
-  };
+  }, [key]);
 
   return [storedValue, setValue] as const;
 }
-
 function getTextColor(hexColor: string) {
   const hex = hexColor.replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
@@ -157,6 +158,7 @@ const MONTHS = [
 // Main Application Component
 // ---------------------------------------------------------------------------
 // === COMPONENT CON ĐƯỢC TỐI ƯU HÓA BẰNG REACT.MEMO ===
+// === COMPONENT CON ĐƯỢC TỐI ƯU HÓA BẰNG REACT.MEMO ===
 const MemoizedCalendarCell = React.memo(({ day, isToday, color, textColor, onDayClick }: { 
   day: number, isToday: boolean, color: string, textColor: string, onDayClick: (day: number) => void 
 }) => {
@@ -170,11 +172,8 @@ const MemoizedCalendarCell = React.memo(({ day, isToday, color, textColor, onDay
       {isToday && <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm" />}
     </button>
   );
-}, (prevProps, nextProps) => {
-  // LÍNH CANH TẠI ĐÂY: Chỉ cho phép "vẽ lại" (re-render) ô lịch NẾU màu sắc của nó thay đổi.
-  // Nếu màu không đổi, lấy luôn hình ảnh cũ ra dùng lại cho nhẹ máy!
-  return prevProps.color === nextProps.color && prevProps.isToday === nextProps.isToday;
 });
+// ====================================================
 // ====================================================
 export default function App() {
   // === 1. Local Storage States ===
@@ -189,7 +188,20 @@ export default function App() {
     { id: '3', name: 'Code dự án cá nhân' }
   ]);
   const [trackedData, setTrackedData] = useLocalStorage<MultiTrackedData>('activity-tracker-multi-data', {});
+// === ÂM THANH (AUDIO FEEDBACK) ===
+  const playTaskDoneSound = React.useCallback(() => {
+    // Tiếng "Ding" định dạng MP3 (Đảm bảo mọi trình duyệt đều đọc được)
+    const audio = new Audio('https://www.myinstants.com/media/sounds/ding-sound-effect_2.mp3');
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Trình duyệt chặn âm thanh:", e));
+  }, []);
 
+  const playPomoBellSound = React.useCallback(() => {
+    // Tiếng chuông báo hết giờ Pomodoro định dạng MP3
+    const audio = new Audio('https://www.myinstants.com/media/sounds/boxing-bell.mp3');
+    audio.volume = 0.6;
+    audio.play().catch(e => console.log("Trình duyệt chặn âm thanh:", e));
+  }, []);
   // === 2. UI States ===
   // === POMODORO STATES & LOGIC ===
   const [pomoMode, setPomoMode] = useState<'work' | 'break'>('work');
@@ -200,21 +212,26 @@ export default function App() {
     let interval: NodeJS.Timeout;
     if (isPomoRunning && pomoTime > 0) {
       interval = setInterval(() => setPomoTime((prev) => prev - 1), 1000);
-    } else if (pomoTime === 0) {
+    } else if (pomoTime === 0 && isPomoRunning) {
+      // 1. Dừng đồng hồ & Phát tiếng chuông ngay lập tức!
       setIsPomoRunning(false);
-      // Khi đếm ngược về 0
-      if (pomoMode === 'work') {
-        alert('🎉 Hết 25 phút tập trung! Giải lao 5 phút thôi nào bạn ơi!');
-        setPomoMode('break');
-        setPomoTime(5 * 60);
-      } else {
-        alert('⏰ Hết giờ nghỉ! Quay lại làm việc năng suất nào!');
-        setPomoMode('work');
-        setPomoTime(25 * 60);
-      }
+      playPomoBellSound(); 
+      
+      // 2. Chờ nửa giây để chuông kịp vang lên rồi mới hiện bảng thông báo
+      setTimeout(() => {
+        if (pomoMode === 'work') {
+          alert('🎉 Hết 25 phút tập trung! Giải lao 5 phút thôi nào bạn ơi!');
+          setPomoMode('break');
+          setPomoTime(5 * 60);
+        } else {
+          alert('⏰ Hết giờ nghỉ! Quay lại làm việc năng suất nào!');
+          setPomoMode('work');
+          setPomoTime(25 * 60);
+        }
+      }, 500); // 500ms = nửa giây
     }
     return () => clearInterval(interval);
-  }, [isPomoRunning, pomoTime, pomoMode]);
+  }, [isPomoRunning, pomoTime, pomoMode, playPomoBellSound]);
 
   const togglePomo = () => setIsPomoRunning(!isPomoRunning);
   
@@ -358,18 +375,25 @@ export default function App() {
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
 
-  const onDayClick = (day: number) => {
+  const onDayClick = React.useCallback((day: number) => {
     if (isEditingHabits || !activeHabitId) return;
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
     setTrackedData(prev => {
-      const next = { ...prev };
-      if (!next[activeHabitId]) next[activeHabitId] = {};
-      if (next[activeHabitId][dateKey] === activeColorId) delete next[activeHabitId][dateKey];
-      else next[activeHabitId][dateKey] = activeColorId;
-      return next;
+      const currentHabitRecords = prev[activeHabitId] ? { ...prev[activeHabitId] } : {};
+      
+      if (currentHabitRecords[dateKey] === activeColorId) {
+        delete currentHabitRecords[dateKey];
+      } else {
+        currentHabitRecords[dateKey] = activeColorId;
+      }
+      
+      return {
+        ...prev,
+        [activeHabitId]: currentHabitRecords
+      };
     });
-  };
-
+  }, [year, month, activeHabitId, activeColorId, isEditingHabits, setTrackedData]);
   const handleAddHabit = () => {
     const newId = Date.now().toString();
     setHabits([...habits, { id: newId, name: 'Chủ đề mới' }]);
@@ -419,10 +443,20 @@ export default function App() {
     setDailyTasks(addTask(dailyTasks, viewDateKey, text.trim()));
   };
 
-  const toggleTaskAction = (taskId: string) => {
+  // const toggleTaskAction = (taskId: string) => {
+  //   setDailyTasks(toggleTask(dailyTasks, viewDateKey, taskId));
+  // };
+const toggleTaskAction = (taskId: string) => {
+    // Kiểm tra xem task này có đang ở mục Chưa hoàn thành không
+    const isPending = dailyTasks[viewDateKey]?.pending.some(t => t.id === taskId);
+    
+    // Nếu đúng là đang hoàn thành task -> Phát nhạc!
+    if (isPending) {
+      playTaskDoneSound(); 
+    }
+    
     setDailyTasks(toggleTask(dailyTasks, viewDateKey, taskId));
   };
-
   const handleDeleteTask = (taskId: string) => {
     if (window.confirm('Bạn có chắc muốn xoá task này?')) {
       setDailyTasks(removeTask(dailyTasks, viewDateKey, taskId));
