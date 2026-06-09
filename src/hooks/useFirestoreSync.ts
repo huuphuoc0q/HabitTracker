@@ -45,7 +45,9 @@ export function useFirestoreSync<T>(key: string, initialValue: T) {
       setStoredValue(valueToStore);
       if (currentUser) {
         const docRef = doc(db, 'users', currentUser.uid, 'data', key);
-        await setDoc(docRef, { value: valueToStore }, { merge: true });
+        // Firestore không chấp nhận giá trị undefined. Lọc bỏ undefined bằng JSON.parse(stringify)
+        const safeValue = JSON.parse(JSON.stringify(valueToStore));
+        await setDoc(docRef, { value: safeValue }, { merge: true });
       }
     } catch (error) {
       console.error("Lỗi khi lưu vào Firestore:", error);

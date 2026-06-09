@@ -1161,7 +1161,31 @@ function MainApp() {
           {viewMode === 'tasks' && (
             <div className="space-y-5 w-full">
               {/* === BẢNG THỐNG KÊ DASHBOARD === */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-1">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <BarChart3 className="w-3.5 h-3.5" /> Bảng Điều Khiển
+                </h3>
+                <button 
+                  onClick={() => setIsDashboardCollapsed(!isDashboardCollapsed)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm"
+                >
+                  {isDashboardCollapsed ? (
+                    <><ChevronDown className="w-3 h-3" /> Hiển thị</>
+                  ) : (
+                    <><ChevronUp className="w-3 h-3" /> Thu gọn</>
+                  )}
+                </button>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {!isDashboardCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-1 mb-5">
 
                 {/* --- POMODORO WIDGET (MỚI) --- */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xl flex flex-col justify-between relative overflow-hidden transition-all hover:shadow-2xl hover:border-emerald-300 min-h-[140px]">
@@ -1312,7 +1336,10 @@ function MainApp() {
                     </div>
                   </div>
                 </div>
-              </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Today Tasks */}
               <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/90 rounded-2xl p-5 lg:p-6 shadow-xl border border-emerald-200/50">
@@ -1567,16 +1594,24 @@ function MainApp() {
                                                   <button
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      startTaskTimer(task);
+                                                      if (activeTimingTask?.id === task.id) {
+                                                        setIsPomoRunning(!isPomoRunning);
+                                                      } else {
+                                                        startTaskTimer(task);
+                                                      }
                                                     }}
                                                     className={`flex-shrink-0 w-10 h-10 rounded-lg shadow-sm flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95 ${
                                                       activeTimingTask?.id === task.id
-                                                        ? 'bg-orange-500 text-white animate-pulse'
+                                                        ? (isPomoRunning ? 'bg-orange-500 text-white animate-pulse' : 'bg-orange-100 text-orange-600')
                                                         : 'bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100'
                                                     }`}
-                                                    title={activeTimingTask?.id === task.id ? 'Đang thực hiện' : 'Bắt đầu thực hiện'}
+                                                    title={activeTimingTask?.id === task.id ? (isPomoRunning ? 'Tạm dừng' : 'Tiếp tục') : 'Bắt đầu đếm giờ'}
                                                   >
-                                                    <Play className="w-5 h-5 fill-current" />
+                                                    {activeTimingTask?.id === task.id && isPomoRunning ? (
+                                                      <Pause className="w-5 h-5 fill-current" />
+                                                    ) : (
+                                                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                                                    )}
                                                   </button>
                                                 )}
 
@@ -1591,11 +1626,15 @@ function MainApp() {
                                                     <>
                                                       <p className="text-base font-bold text-slate-900 leading-snug group-hover:text-emerald-700 mb-1 break-words">{task.text}</p>
                                                       <div className="flex flex-wrap gap-1.5 items-center">
-                                                         {task.duration && (
+                                                         {activeTimingTask?.id === task.id ? (
+                                                           <span className={`text-[11px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 font-bold border font-mono shadow-sm ${isPomoRunning ? 'text-orange-600 bg-orange-50 border-orange-200 animate-pulse' : 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+                                                             <Timer className="w-3.5 h-3.5" /> {formatTime(pomoTime)}
+                                                           </span>
+                                                         ) : task.duration ? (
                                                            <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-bold border border-blue-100 font-sans shadow-sm">
                                                              <Timer className="w-3 h-3 text-blue-500" /> {formatDuration(task.duration)}
                                                            </span>
-                                                         )}
+                                                         ) : null}
                                                          {task.dateAdded && <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-sans">Thêm {new Date(task.dateAdded).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })}</span>}
                                                          {task.recurringTaskId && (
                                                            <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-bold border border-emerald-100 font-sans shadow-sm">
