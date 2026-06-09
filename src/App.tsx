@@ -1061,9 +1061,13 @@ function MainApp() {
           <section className="mt-auto pt-6 border-t border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
-                  {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
-                </div>
+                {currentUser?.photoURL ? (
+                  <img src={currentUser.photoURL} alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-slate-200" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                    {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-800 line-clamp-1">{currentUser?.displayName || 'Người dùng'}</p>
                   <p className="text-[10px] text-slate-500 line-clamp-1">{currentUser?.email}</p>
