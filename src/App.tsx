@@ -284,46 +284,62 @@ function MainApp() {
   const [pomoTime, setPomoTime] = useState(25 * 60); // 25 phút mặc định
   const [isPomoRunning, setIsPomoRunning] = useState(false);
   const [activeTimingTask, setActiveTimingTask] = useState<DailyTask | null>(null);
+  const [targetEndTime, setTargetEndTime] = useState<number | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isPomoRunning && pomoTime > 0) {
-      interval = setInterval(() => setPomoTime((prev) => prev - 1), 1000);
-    } else if (pomoTime === 0 && isPomoRunning) {
-      // 1. Dừng đồng hồ & Phát tiếng chuông ngay lập tức!
-      setIsPomoRunning(false);
-      playPomoBellSound();
+    if (isPomoRunning && targetEndTime) {
+      interval = setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.round((targetEndTime - now) / 1000));
+        setPomoTime(remaining);
 
-      // 2. Chờ nửa giây để chuông kịp vang lên rồi mới hiện bảng thông báo
-      setTimeout(() => {
-        if (activeTimingTask) {
-          const confirmDone = window.confirm(`🎉 Hết giờ thực hiện task: "${activeTimingTask.text}"!\nBạn có muốn đánh dấu task này là hoàn thành không?`);
-          if (confirmDone) {
-            toggleTaskAction(activeTimingTask.id);
-          }
-          setActiveTimingTask(null);
-          setPomoTime(25 * 60);
-          setPomoMode('work');
-        } else {
-          if (pomoMode === 'work') {
-            alert('🎉 Hết 25 phút tập trung! Giải lao 5 phút thôi nào bạn ơi!');
-            setPomoMode('break');
-            setPomoTime(5 * 60);
-          } else {
-            alert('⏰ Hết giờ nghỉ! Quay lại làm việc năng suất nào!');
-            setPomoMode('work');
-            setPomoTime(25 * 60);
-          }
+        if (remaining <= 0) {
+          clearInterval(interval);
+          setIsPomoRunning(false);
+          setTargetEndTime(null);
+          playPomoBellSound();
+
+          setTimeout(() => {
+            if (activeTimingTask) {
+              const confirmDone = window.confirm(`🎉 Hết giờ thực hiện task: "${activeTimingTask.text}"!\nBạn có muốn đánh dấu task này là hoàn thành không?`);
+              if (confirmDone) {
+                toggleTaskAction(activeTimingTask.id);
+              }
+              setActiveTimingTask(null);
+              setPomoTime(25 * 60);
+              setPomoMode('work');
+            } else {
+              if (pomoMode === 'work') {
+                alert('🎉 Hết 25 phút tập trung! Giải lao 5 phút thôi nào bạn ơi!');
+                setPomoMode('break');
+                setPomoTime(5 * 60);
+              } else {
+                alert('⏰ Hết giờ nghỉ! Quay lại làm việc năng suất nào!');
+                setPomoMode('work');
+                setPomoTime(25 * 60);
+              }
+            }
+          }, 500);
         }
-      }, 500); // 500ms = nửa giây
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPomoRunning, pomoTime, pomoMode, playPomoBellSound, activeTimingTask]);
+  }, [isPomoRunning, targetEndTime, pomoMode, playPomoBellSound, activeTimingTask]);
 
-  const togglePomo = () => setIsPomoRunning(!isPomoRunning);
+  const togglePomo = () => {
+    if (isPomoRunning) {
+      setIsPomoRunning(false);
+      setTargetEndTime(null);
+    } else {
+      setIsPomoRunning(true);
+      setTargetEndTime(Date.now() + pomoTime * 1000);
+    }
+  };
 
   const resetPomo = () => {
     setIsPomoRunning(false);
+    setTargetEndTime(null);
     if (activeTimingTask) {
       setPomoTime((activeTimingTask.duration || 25) * 60);
     } else {
@@ -333,6 +349,7 @@ function MainApp() {
 
   const switchPomoMode = (mode: 'work' | 'break') => {
     setIsPomoRunning(false);
+    setTargetEndTime(null);
     setActiveTimingTask(null);
     setPomoMode(mode);
     setPomoTime(mode === 'work' ? 25 * 60 : 5 * 60);
@@ -579,7 +596,13 @@ function MainApp() {
         [activeHabitId]: currentHabitRecords
       };
     });
-  }, [year, month, activeHabitId, activeColorId, isEditingHabits, setTrackedData]);
+
+    // Tự động chuyển sang thói quen tiếp theo
+    const currentIndex = habits.findIndex(h => h.id === activeHabitId);
+    if (currentIndex !== -1 && currentIndex < habits.length - 1) {
+      setActiveHabitId(habits[currentIndex + 1].id);
+    }
+  }, [year, month, activeHabitId, activeColorId, isEditingHabits, setTrackedData, habits]);
   const handleAddHabit = () => {
     const newId = Date.now().toString();
     setHabits([...habits, { id: newId, name: 'Chủ đề mới' }]);
@@ -652,10 +675,12 @@ function MainApp() {
   };
 
   const startTaskTimer = (task: DailyTask) => {
+    const durationSec = (task.duration || 25) * 60;
     setActiveTimingTask(task);
-    setPomoTime((task.duration || 25) * 60);
+    setPomoTime(durationSec);
     setPomoMode('work');
     setIsPomoRunning(true);
+    setTargetEndTime(Date.now() + durationSec * 1000);
   };
 
   const getRecurrenceSummary = (task: { repeatType: string, weekdays?: number[], endDate?: string }) => {
@@ -716,6 +741,7 @@ function MainApp() {
     // Nếu task này đang chạy đếm ngược -> Dừng đồng hồ và reset
     if (activeTimingTask && activeTimingTask.id === taskId) {
       setIsPomoRunning(false);
+      setTargetEndTime(null);
       setActiveTimingTask(null);
       setPomoTime(25 * 60);
     }
@@ -727,6 +753,7 @@ function MainApp() {
       // Nếu task này đang chạy đếm ngược -> Dừng đồng hồ và reset
       if (activeTimingTask && activeTimingTask.id === taskId) {
         setIsPomoRunning(false);
+        setTargetEndTime(null);
         setActiveTimingTask(null);
         setPomoTime(25 * 60);
       }
